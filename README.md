@@ -1,122 +1,185 @@
-Проект представляет собой систему для управления валютным портфелем, включающую работу с внешними API, кеширование данных и CLI-интерфейс. Ниже описана структура проекта и основные компоненты.
+# Primitive DB — простая файловая база данных на Python
 
-## Структура проекта
+Учебный консольный проект: небольшая «база данных» без SQL, где таблицы и записи хранятся в JSON-файлах.
 
-```
-finalproject_Shchebetovskii_M25-555/
-│  
-├── data/                         # Каталог с данными и кэшем
-│    ├── users.json               # Данные пользователей
-│    ├── portfolios.json          # Портфели пользователей
-│    ├── rates.json               # Локальный кэш для Core Service (текущие курсы)
-│    ├── exchange_rates.json      # Исторические данные от Parser Service
-│    └── logs/                    # Каталог с логами
-│         └── actions.log         # Логи
-│
-├── valutatrade_hub/              # Основной модуль системы
-│    ├── __init__.py
-│    ├── logging_config.py        # Конфигурация логирования
-│    ├── decorators.py            # Декораторы
-│    ├── core/                    # Бизнес-логика и модели
-│    │    ├── __init__.py
-│    │    ├── constants.py        # Константы
-│    │    ├── currencies.py       # Работа с валютами
-│    │    ├── exceptions.py       # Исключения проекта
-│    │    ├── models.py           # Модели данных
-│    │    ├── usecases.py         # Основные сценарии использования
-│    │    └── utils.py            # Вспомогательные функции
-│    ├── infra/                   # Инфраструктура и настройки
-│    │    ├─ __init__.py
-│    │    ├── settings.py         # Настройки проекта
-│    │    └── database.py         # Работа с базой данных или файлами
-│    ├── parser_service/          # Модуль парсинга и обновления курсов
-│    │    ├── __init__.py
-│    │    ├── config.py           # Конфигурация API и обновлений
-│    │    ├── api_clients.py      # Работа с внешними API
-│    │    ├── updater.py          # Основной модуль обновления курсов
-│    │    ├── storage.py          # Чтение/запись exchange_rates.json
-│    │    └── scheduler.py        # Планировщик периодического обновления
-│    └── cli/                     # CLI интерфейс
-│         ├─ __init__.py
-│         └─ interface.py         # Реализация командной строки
-│
-├── config.json                   # Конфигурация системы
-├── main.py                       # Точка входа в программу
-├── Makefile                      # Makefile для автоматизации задач
-├── poetry.lock                   # Lock-файл Poetry
-├── pyproject.toml                # Конфигурация Poetry / Poetry dependencies
-├── README.md                     # Этот файл
-└── .gitignore                    # Исключения Git
+## Возможности
+
+- Управление таблицами:
+  - `create_table` — создать таблицу с полями и типами
+  - `drop_table` — удалить таблицу
+  - `list_tables` — вывести список таблиц и схем
+
+- CRUD:
+  - `insert` — добавить запись (ID генерируется автоматически)
+  - `select` — вывести записи (с фильтрацией `where`)
+  - `update` — обновить записи (через `set` + `where`)
+  - `delete` — удалить записи (с `where` или полностью)
+
+- Дополнительно:
+  - декораторы: `handle_db_errors`, `log_command`, `confirm_action`
+  - кэширование `select` через замыкание (авто-инвалидация при изменениях)
+
+Данные по умолчанию создаются рядом с репозиторием:
+- `db_meta.json` — метаданные (схемы/счётчики ID)
+- `data/*.json` — записи таблиц
+- `logs/commands.log` — лог команд
+
+## Установка и запуск
+
+```bash
+make install
+make project
 ```
 
-## Описание компонентов
-
-- **data/** — директория с исходными данными, локальными кэшами и историческими курсами.
-- **valutatrade_hub/** — основной код системы, разделённый на логическую и инфраструктурную части.
-- **parser_service/** — модуль для получения и обновления валютных курсов из внешних источников.
-- **cli/** — командный интерфейс для взаимодействия с пользователем.
-- **main.py** — запуск системы, запуск CLI или автоматических обновлений.
-
-## Начало работы
-
-1. Установите зависимости, например, с помощью Poetry:
+Либо напрямую через poetry:
 
 ```bash
 poetry install
-```
-
-2. Настройте Parser Service, настройте конфигурации по необходимости в `config.json`.
-
-3. Запустите программу:
-
-```bash
 poetry run project
 ```
 
-или
+## Синтаксис команд
 
-```bash
-python main.py
+### create_table
+
+```text
+create_table <table> <field:type> <field:type> ...
 ```
 
-## Настройка Parser Service
+Пример:
 
-- Получите API ключ на exchangerate-api.com.
-- Установите переменную окружения `EXCHANGERATE_API_KEY` в системе.
+```text
+create_table users name:str age:int is_active:bool
+```
 
-## Примеры команд CLI
+### list_tables
 
-1. Регистрация и вход в систему
+```text
+list_tables
+```
 
-- register --username alice --password 1234
-- login --username alice --password 1234
+### drop_table
 
-2. Управление портфелем
+```text
+drop_table <table>
+```
 
-- show-portfolio --base EUR
-- buy --currency RUB --amount 100
-- sell --currency BTC --amount 0.005
+> Для удаления таблицы требуется подтверждение (декоратор `confirm_action`).
 
-3. Работа с курсами
+### insert
 
-- get-rate --from USD --to BTC
-- update-rates
-- show-rates --top 3
+```text
+insert <table> <field=value> <field=value> ...
+```
 
-## Кэш и TTL
+Пример:
 
-- Система использует двухуровневое кэширование.
-- `rates.json` - быстрый кэш для Core Service.
-- TTL (Time To Live): 5 минут по умолчанию.
-- При запросе курса проверяется свежесть данных.
-- Если данные устарели, запускается обновление через Parser Service.
+```text
+insert users name="Alice" age=30 is_active=true
+insert users name="Bob" age=25 is_active=false
+```
 
-## Дополнительная информация
+### select
 
-- USD - базовая валюта
-- Поддерживаются фиатные и криптовалюты
-- После старта приложения рекомендуется обновить курсы, чтобы они закэшировались.
-- Исторические данные о курсах хранятся в `exchange_rates.json`.
+```text
+select <table> [where <условие>]
+```
+
+Поддерживаются операторы: `=`, `!=`, `>`, `<`, `>=`, `<=`.
+
+Примеры:
+
+```text
+select users
+select users where age>=30
+select users where name="Alice" and is_active=true
+```
+
+### update
+
+```text
+update <table> set <field=value>, <field=value> [where <условие>]
+```
+
+Пример:
+
+```text
+update users set age=31, is_active=false where name="Alice"
+```
+
+### delete
+
+```text
+delete <table> [where <условие>]
+```
+
+Примеры:
+
+```text
+delete users where id=2
+delete users
+```
+
+> Если `where` не указан, удаляются **все** записи — потребуется подтверждение.
+
+### help / exit
+
+```text
+help
+exit
+
+```bash
+asciinema rec demo.cast
+## Сценарий демонстрации (для проверки/записи asciinema)
+
+Ниже — последовательность команд, которая демонстрирует полный цикл работы и покрывает критерии:
+
+```text
+help
+create_table users name:str, age:int, is_active:bool
+insert users name="Alice" age=30 is_active=true
+insert users name="Bob" age=25 is_active=false
+select users
+select users where age>=30 and is_active=true
+update users set age=31, is_active=false where name="Alice"
+select users where name="Alice"
+delete users where id=2
+select users
+drop_table users
+exit
+```
+
+exit
+asciinema upload demo.cast
+```
+
+## Структура проекта
+
+```text
+src/primitive_db/
+  main.py         # REPL/точка входа
+  parser.py       # парсер команд + where/set
+  commands.py     # диспетчеризация команд и вывод
+  core.py         # бизнес-логика БД
+  storage.py      # файловое хранилище (JSON)
+  decorators.py   # handle_db_errors / log_command / confirm_action
+  utils.py        # вспомогательные функции (типизация/парсинг)
+  errors.py       # типы ошибок
+  constants.py    # константы/пути/поддерживаемые типы
+```
+
+## Примечания по типам
+
+Поддерживаемые типы:
+- `int`, `float`, `str`, `bool`
+
+Для `bool` принимаются: `true/false`, `1/0`, `yes/no` (регистр не важен).
+
+## Сборка пакета (опционально)
+
+- `make build` — собрать sdist/wheel в `dist/`
+- `make publish` — опубликовать пакет через Poetry (потребуются токены)
+- `make package-install` — установить собранный wheel локально из `dist/`
 
 ## Контакты
 

@@ -12,3 +12,7 @@ __pycache__/
 
 # Ruff cache
 .ruff_cache/
+
+# Cache
+db_meta.json
+data/
